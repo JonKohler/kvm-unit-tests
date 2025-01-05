@@ -131,6 +131,16 @@ all: directories $(shell (cd $(SRCDIR) && git rev-parse --verify --short=8 HEAD)
 standalone: all
 	@scripts/mkstandalone.sh
 
+portable: all
+	$(RM) -f kut-portable.tar.gz && \
+	$(RM) -rf kut-portable && \
+	mkdir -p kut-portable/scripts/s390x kut-portable/$(TEST_DIR) && \
+	cp build-head errata.txt config.mak run_tests.sh $(TEST_DIR)-run kut-portable && \
+	sed -i '/^ERRATATXT/cERRATATXT=errata.txt' kut-portable/config.mak && \
+	cp -r scripts/* kut-portable/scripts && \
+	cp $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg $(TEST_DIR)/run kut-portable/$(TEST_DIR) && \
+	tar -czf kut-portable.tar.gz kut-portable
+
 install: standalone
 	mkdir -p $(DESTDIR)
 	install tests/* $(DESTDIR)
