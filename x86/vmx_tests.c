@@ -4868,6 +4868,69 @@ skip_unrestricted_guest:
 }
 
 /*
+ * Test the dependency between mode-based execute control for EPT (MBEC) and
+ * enable EPT VM-execution controls.
+ *
+ * When MBEC (bit 22 of secondary processor-based VM-execution controls) is enabled,
+ * it allows separate execute permissions for supervisor-mode and user-mode linear
+ * addresses in EPT paging structures. However, per Intel SDM requirement:
+ *
+ * "If the 'mode-based execute control for EPT' VM-execution control is 1,
+ * the 'enable EPT' VM-execution control must also be 1."
+ *
+ * This test validates that VM entry fails when MBEC is enabled without EPT,
+ * and succeeds in all other valid combinations.
+ *
+ * [Intel SDM Vol. 3C, Section 26.6.2, Table 26-7]
+ */
+static void test_mode_based_execute_control(void)
+{
+	u32 primary_saved = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary_saved = vmcs_read(CPU_EXEC_CTRL1);
+	u32 primary = primary_saved;
+	u32 secondary = secondary_saved;
+
+	/* Skip test if required VM-execution controls are not supported */
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	/* Test case 1: MBEC disabled, EPT disabled - should be valid */
+	primary |= CPU_SECONDARY;
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+	secondary &= ~(CPU_MODE_BASED_EPT_EXEC | CPU_EPT);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("MBEC disabled, EPT disabled (valid combination)");
+	test_vmx_valid_controls();
+	report_prefix_pop();
+
+	/* Test case 2: MBEC enabled, EPT disabled - should be invalid per SDM */
+	secondary |= CPU_MODE_BASED_EPT_EXEC;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("MBEC enabled, EPT disabled (invalid combination)");
+	test_vmx_invalid_controls();
+	report_prefix_pop();
+
+	/* Test case 3: MBEC enabled, EPT enabled - should be valid */
+	secondary |= CPU_EPT;
+	setup_dummy_ept();
+	report_prefix_pushf("MBEC enabled, EPT enabled (valid combination)");
+	test_vmx_valid_controls();
+	report_prefix_pop();
+
+	/* Test case 4: MBEC disabled, EPT enabled - should be valid */
+	secondary &= ~CPU_MODE_BASED_EPT_EXEC;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("MBEC disabled, EPT enabled (valid combination)");
+	test_vmx_valid_controls();
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
+	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
+}
+
+/*
  * If the 'enable PML' VM-execution control is 1, the 'enable EPT'
  * VM-execution control must also be 1. In addition, the PML address
  * must satisfy the following checks:
@@ -5327,6 +5390,7 @@ static void test_vm_execution_ctls(void)
 	test_pml();
 	test_vpid();
 	test_ept_eptp();
+	test_mode_based_execute_control();
 	test_vmx_preemption_timer();
 }
 
@@ -5549,6 +5613,17 @@ static void vmx_controls_test(void)
 	test_vm_execution_ctls();
 	test_vm_exit_ctls();
 	test_vm_entry_ctls();
+}
+
+/*
+ * Check that Intel MBEC controls function properly, which is a
+ * Skylake and above feature, and is not supported on older CPUs.
+ */
+static void vmx_controls_test_mbec(void)
+{
+	vmcs_write(GUEST_RFLAGS, 0);
+
+	test_mode_based_execute_control();
 }
 
 struct apic_reg_virt_config {
@@ -11506,6 +11581,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(invvpid_test),
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
+	TEST(vmx_controls_test_mbec),
 	TEST(vmx_host_state_area_test),
 	TEST(vmx_guest_state_area_test),
 	TEST(vmentry_movss_shadow_test),
