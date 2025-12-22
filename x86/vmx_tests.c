@@ -2885,6 +2885,9 @@ static void ept_access_test_read_write_execute(void)
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_WRITE);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC);
+
+	if (is_mbec_supported())
+		ept_access_allowed(EPT_PRESENT, OP_EXEC_USER);
 }
 
 static void ept_access_test_reserved_bits(void)
