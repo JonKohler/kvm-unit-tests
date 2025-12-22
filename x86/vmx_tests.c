@@ -2252,6 +2252,7 @@ enum ept_access_op {
 	OP_READ,
 	OP_WRITE,
 	OP_EXEC,
+	OP_EXEC_USER,
 	OP_FLUSH_TLB,
 	OP_EXIT,
 };
@@ -2717,10 +2718,20 @@ static void ept_access_test_teardown(void *unused)
 	do_ept_access_op(OP_EXIT);
 }
 
+static u64 exec_user_on_gva(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	int (*code)(void) = (int (*)(void)) &data->gva[1];
+
+	return code();
+}
+
 static void ept_access_test_guest(void)
 {
 	struct ept_access_test_data *data = &ept_access_test_data;
 	int (*code)(void) = (int (*)(void)) &data->gva[1];
+	bool unused;
+	u64 ret_val;
 
 	while (true) {
 		switch (data->op) {
@@ -2734,6 +2745,12 @@ static void ept_access_test_guest(void)
 			break;
 		case OP_EXEC:
 			TEST_ASSERT_EQ(42, code());
+			break;
+		case OP_EXEC_USER:
+			TEST_ASSERT_EQ(is_mbec_supported(), true);
+			ret_val = run_in_user(exec_user_on_gva, GP_VECTOR,
+					      0, 0, 0, 0, &unused);
+			TEST_ASSERT_EQ(42, ret_val);
 			break;
 		case OP_FLUSH_TLB:
 			write_cr3(read_cr3());
