@@ -2856,6 +2856,14 @@ static void ept_access_test_execute_only(void)
 		ept_access_violation(EPT_EA, OP_WRITE,
 				     EPT_VLT_WR | EPT_VLT_PERM_EX);
 		ept_access_allowed(EPT_EA, OP_EXEC);
+		if (is_mbec_supported()) {
+			// FIXME: this does not produce the expected
+			// EPT violation, instead we get assert:
+			//   Expected VMX_EPT_VIOLATION, got VMX_VMCALL
+			// ept_access_violation(EPT_EA, OP_EXEC_USER,
+			//		     EPT_VLT_FETCH |
+			//		     EPT_VLT_PERM_EX);
+		}
 	} else {
 		ept_access_misconfig(EPT_EA);
 	}
