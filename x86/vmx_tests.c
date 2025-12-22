@@ -2586,6 +2586,11 @@ static void ept_ignored_bit(int bit)
 	ept_allowed(1ul << bit, 0, OP_READ);
 	ept_allowed(1ul << bit, 0, OP_WRITE);
 	ept_allowed(1ul << bit, 0, OP_EXEC);
+
+	if (is_mbec_supported()) {
+		ept_allowed(0, 1ul << bit, OP_EXEC_USER);
+		ept_allowed(1ul << bit, 0, OP_EXEC_USER);
+	}
 }
 
 static void ept_access_allowed(unsigned long access, enum ept_access_op op)
@@ -2936,7 +2941,8 @@ static void ept_access_test_ignored_bits(void)
 	 */
 	ept_ignored_bit(8);
 	ept_ignored_bit(9);
-	ept_ignored_bit(10);
+	if (!is_mbec_supported())
+		ept_ignored_bit(10);
 	ept_ignored_bit(11);
 	ept_ignored_bit(52);
 	ept_ignored_bit(53);
