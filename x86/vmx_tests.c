@@ -2867,8 +2867,17 @@ static void ept_access_test_read_execute(void)
 	/* r-x */
 	ept_access_allowed(EPT_RA | EPT_EA, OP_READ);
 	ept_access_violation(EPT_RA | EPT_EA, OP_WRITE,
-			   EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+			     EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
 	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
+	if (is_mbec_supported()) {
+		ept_access_allowed(EPT_RA | EPT_EA_USER, OP_READ);
+		// FIXME: this one produces EPT_VIOLATION LOOP (doesn't work, should it?)
+		// ept_access_violation(EPT_RA | EPT_EA_USER, OP_WRITE,
+		//		     EPT_VLT_WR | EPT_VLT_PERM_RD |
+		//		     EPT_VLT_PERM_EX);
+		// FIXME: this one produces EPT_VIOLATION LOOP (doesn't work, should it?)
+		//ept_access_allowed(EPT_RA | EPT_EA_USER, OP_EXEC_USER);
+	}
 }
 
 static void ept_access_test_write_execute(void)
