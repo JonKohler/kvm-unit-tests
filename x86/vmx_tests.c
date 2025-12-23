@@ -2294,6 +2294,7 @@ do {									\
 	DIAGNOSE(EPT_VLT_PERM_RD);
 	DIAGNOSE(EPT_VLT_PERM_WR);
 	DIAGNOSE(EPT_VLT_PERM_EX);
+	DIAGNOSE(EPT_VLT_PERM_USER_EX);
 	DIAGNOSE(EPT_VLT_LADDR_VLD);
 	DIAGNOSE(EPT_VLT_PADDR);
 
@@ -2360,9 +2361,12 @@ static void do_ept_violation(bool leaf, enum ept_access_op op,
 
 	qual = vmcs_read(EXI_QUALIFICATION);
 
-	/* Mask undefined bits (which may later be defined in certain cases). */
-	qual &= ~(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | EPT_VLT_GUEST_EX |
-		 EPT_VLT_PERM_USER_EX);
+	/*
+	 * Exit-qualifications are masked not to account for advanced
+	 * VM-exit information. Once KVM supports this feature, this
+	 * masking should be removed.
+	 */
+	qual &= ~EPT_VLT_GUEST_MASK;
 
 	diagnose_ept_violation_qual(expected_qual, qual);
 	TEST_EXPECT_EQ(expected_qual, qual);
@@ -2390,6 +2394,8 @@ ept_violation_at_level_mkhuge(bool mkhuge, int level, unsigned long clear,
 
 	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
 
+	// FIXME: does this need to be modified for OP_USER_EXEC to feed
+	// in differently allocated memory perhaps?
 	do_ept_violation(level == 1 || mkhuge, op, expected_qual,
 			 op == OP_EXEC ? data->gpa + sizeof(unsigned long) :
 					 data->gpa);
@@ -2866,6 +2872,41 @@ static void ept_access_test_execute_only(void)
 		}
 	} else {
 		ept_access_misconfig(EPT_EA);
+	}
+}
+
+static void ept_access_test_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* --X (exec user only) */
+	if (ept_execute_only_supported()) {
+		// FIXME: should we be expecting EPT_VLT_PERM_USER_EX?
+		// as we're not getting it. Perhaps this has to do with
+		// how KUT is allocating memory here?
+		ept_access_violation(EPT_EA_USER, OP_READ,
+				     EPT_VLT_RD |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA_USER, OP_WRITE,
+				     EPT_VLT_WR |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA_USER, OP_EXEC,
+				     EPT_VLT_FETCH |
+				     EPT_VLT_PERM_USER_EX);
+		// FIXME: this one gets EPT VIOLATION
+		//   Expected VMX_VMCALL, got VMX_EPT_VIOLATION with
+		//   flags EPT_VLT_FETCH | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR
+		// I'm guessing this is getting EPT VIOLATION for the same
+		// reason the above are not getting USER_EX, because the data
+		// address is supervisor mode linear address, not user mode
+		// linear?
+		ept_access_allowed(EPT_EA_USER, OP_EXEC_USER);
+	} else {
+		ept_access_misconfig(EPT_EA_USER);
 	}
 }
 
@@ -11707,6 +11748,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_write_only),
 	TEST(ept_access_test_read_write),
 	TEST(ept_access_test_execute_only),
+	TEST(ept_access_test_execute_user_only),
 	TEST(ept_access_test_read_execute),
 	TEST(ept_access_test_write_execute),
 	TEST(ept_access_test_read_write_execute),
