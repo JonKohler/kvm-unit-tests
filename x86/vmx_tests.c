@@ -2969,6 +2969,9 @@ static void ept_access_test_paddr_not_present_ad_disabled(void)
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, EPT_VLT_RD);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, EPT_VLT_RD);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, EPT_VLT_RD);
+
+	if (is_mbec_supported())
+		ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC_USER, EPT_VLT_RD);
 }
 
 static void ept_access_test_paddr_not_present_ad_enabled(void)
@@ -2981,6 +2984,9 @@ static void ept_access_test_paddr_not_present_ad_enabled(void)
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, qual);
+
+	if (is_mbec_supported())
+		ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_read_only_ad_disabled(void)
@@ -3008,6 +3014,12 @@ static void ept_access_test_paddr_read_only_ad_disabled(void)
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_READ);
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC);
+
+	if (is_mbec_supported()) {
+		ept_access_violation_paddr(EPT_RA, 0, OP_EXEC_USER, qual);
+		ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC_USER);
+		ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC_USER);
+	}
 }
 
 static void ept_access_test_paddr_read_only_ad_enabled(void)
@@ -3031,6 +3043,12 @@ static void ept_access_test_paddr_read_only_ad_enabled(void)
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC, qual);
+
+	if (is_mbec_supported()) {
+		ept_access_violation_paddr(EPT_RA, 0, OP_EXEC_USER, qual);
+		ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC_USER, qual);
+		ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC_USER, qual);
+	}
 }
 
 static void ept_access_test_paddr_read_write(void)
@@ -3040,6 +3058,9 @@ static void ept_access_test_paddr_read_write(void)
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC);
+
+	if (is_mbec_supported())
+		ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_write_execute(void)
@@ -3049,6 +3070,9 @@ static void ept_access_test_paddr_read_write_execute(void)
 	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_EXEC);
+
+	if (is_mbec_supported())
+		ept_access_allowed_paddr(EPT_PRESENT, 0, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_execute_ad_disabled(void)
@@ -3076,6 +3100,15 @@ static void ept_access_test_paddr_read_execute_ad_disabled(void)
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC);
+
+	if (is_mbec_supported()) {
+		ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC_USER,
+					   qual);
+		ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK,
+					 OP_EXEC_USER);
+		ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK,
+					 OP_EXEC_USER);
+	}
 }
 
 static void ept_access_test_paddr_read_execute_ad_enabled(void)
@@ -3099,6 +3132,15 @@ static void ept_access_test_paddr_read_execute_ad_enabled(void)
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC, qual);
+
+	if (is_mbec_supported()) {
+		ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC_USER,
+					   qual);
+		ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK,
+					   OP_EXEC_USER, qual);
+		ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK,
+					   OP_EXEC_USER, qual);
+	}
 }
 
 static void ept_access_test_paddr_not_present_page_fault(void)
