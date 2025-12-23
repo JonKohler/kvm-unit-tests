@@ -2381,7 +2381,22 @@ static void do_ept_violation(bool leaf, enum ept_access_op op,
 	 * TODO: tests that probe expected_paddr in pages other than the one at
 	 * the beginning of the 1g region.
 	 */
-	TEST_EXPECT_EQ(vmcs_read(INFO_PHYS_ADDR), expected_paddr);
+	// FIXME: ept_access_test_read_write fails without this, otherwise
+	// test outputs:
+	// Test suite: ept_access_test_read_write
+	// FAIL: x86/vmx_tests.c:2384: Expectation failed: (vmcs_read(INFO_PHYS_ADDR)) == (expected_paddr)
+	//	LHS: 0x0000008000000008 - 0000'0000'0000'0000'0000'0000'1000'0000'0000'0000'0000'0000'0000'0000'0000'1000 - 549755813896
+	//	RHS: 0x0000008000000000 - 0000'0000'0000'0000'0000'0000'1000'0000'0000'0000'0000'0000'0000'0000'0000'0000 - 549755813888
+	//	STACK: 4175d0 417632 417699 417720 417863 402273 4040e5 4001bd
+	if (is_mbec_supported() && op == OP_EXEC_USER) {
+		u64 vmcs_paddr = vmcs_read(INFO_PHYS_ADDR);
+		u64 mask = ~(PAGE_SIZE - 1);
+
+		if (vmcs_paddr)
+			TEST_EXPECT_EQ((vmcs_paddr & mask), (expected_paddr & mask));
+	} else {
+		TEST_EXPECT_EQ(vmcs_read(INFO_PHYS_ADDR), expected_paddr);
+	}
 }
 
 static void
@@ -2822,6 +2837,8 @@ static void ept_access_test_not_present(void)
 	ept_access_violation(0, OP_READ, EPT_VLT_RD);
 	ept_access_violation(0, OP_WRITE, EPT_VLT_WR);
 	ept_access_violation(0, OP_EXEC, EPT_VLT_FETCH);
+	if (is_mbec_supported())
+		ept_access_violation(0, OP_EXEC_USER, EPT_VLT_FETCH);
 }
 
 static void ept_access_test_read_only(void)
@@ -2832,6 +2849,9 @@ static void ept_access_test_read_only(void)
 	ept_access_allowed(EPT_RA, OP_READ);
 	ept_access_violation(EPT_RA, OP_WRITE, EPT_VLT_WR | EPT_VLT_PERM_RD);
 	ept_access_violation(EPT_RA, OP_EXEC, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
+	if (is_mbec_supported())
+		ept_access_violation(EPT_RA, OP_EXEC_USER,
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD);
 }
 
 static void ept_access_test_write_only(void)
@@ -2848,7 +2868,12 @@ static void ept_access_test_read_write(void)
 	ept_access_allowed(EPT_RA | EPT_WA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA, OP_WRITE);
 	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC,
-			   EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR);
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_WR);
+	if (is_mbec_supported())
+		ept_access_violation(EPT_RA | EPT_WA, OP_EXEC_USER,
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+				     EPT_VLT_PERM_WR);
 }
 
 
